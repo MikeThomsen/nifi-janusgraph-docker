@@ -1,33 +1,55 @@
 version: "3"
 services:
-  elasticsearch:
+  sm_elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:6.8.0
-    container_name: elasticsearch
-    hostname: elasticsearch
+    container_name: sm_elasticsearch
+    hostname: sm_elasticsearch
     environment:
       - "discovery.type=single-node"
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_PASSWORD=elastic
-      - xpack.security.enabled=true
+      - xpack.security.enabled=false
     ports:
-      - 9200:9200
-      - 9300:9300
-  kibana:
+      - "9200:9200"
+      - "9300:9300"
+  sm_kibana:
     image: docker.elastic.co/kibana/kibana:6.8.0
-    container_name: kibana
+    container_name: sm_kibana
     environment:
-      - ELASTICSEARCH_URL="http://elasticsearch:9200"
+      - ELASTICSEARCH_URL="http://sm_elasticsearch:9200"
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_PASSWORD=elastic
-      - xpack.security.enabled=true
+      - xpack.security.enabled=false
     ports:
       - 5601:5601
     links:
-      - elasticsearch
-  cassandra:
+      - sm_elasticsearch
+  sm_cassandra:
     image: cassandra:3
-    container_name: cassandra
+    container_name: sm_cassandra
     ports:
-      - 9042:9042
+      - "9042:9042"
+  sm_janusgraph:
+    image: janusgraph/janusgraph:latest
+    container_name: sm_janusgraph
+    environment:
+      JANUS_PROPS_TEMPLATE: cassandra-es
+      janusgraph.storage.backend: cql
+      janusgraph.storage.hostname: sm_cassandra
+      janusgraph.index.search.hostname: sm_elasticsearch
+    ports:
+      - "8182:8182"
+    links:
+      - sm_elasticsearch
+      - sm_cassandra
 
-
+  sm_nifi:
+    build:
+      context: nifi
+    container_name: sm_nifi
+    ports:
+      - "7070:8080"
+    links:
+      - sm_elasticsearch
+      - sm_cassandra
+      - sm_janusgraph
